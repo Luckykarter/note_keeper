@@ -5,10 +5,15 @@ import android.os.PersistableBundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.ui.AppBarConfiguration
 import android.view.Menu
+import android.util.Log
 import android.view.MenuItem
 import android.widget.ArrayAdapter
 import com.example.notekeeper.databinding.ActivityMainBinding
 import com.example.notekeeper.databinding.FragmentFirstBinding
+import com.google.android.material.snackbar.Snackbar
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 
 class Person(val name: String, var weightKg: Double) {
@@ -54,11 +59,58 @@ class MainActivity : AppCompatActivity() {
         adapterCourses.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.test.spinnerCourses.adapter = adapterCourses
 
-        notePosition = savedInstanceState?.getInt(NOTE_POSITION, POSITION_NOT_SET) ?:
-            intent.getIntExtra(NOTE_POSITION, POSITION_NOT_SET)
+        notePosition =
+            savedInstanceState?.getInt(NOTE_POSITION, POSITION_NOT_SET) ?: intent.getIntExtra(
+                NOTE_POSITION,
+                POSITION_NOT_SET
+            )
 
         displayNote()
+        println("test!")
+        //getData()
 
+    }
+
+    private fun getData() {
+        val apiInterface = ApiInterface.create()
+        val loginCredentials = LoginInfo("egor.wexler@voitixler.ru", "Jibhfr456")
+        apiInterface.login(loginCredentials).enqueue(
+            object : Callback<TokenInfo> {
+                override fun onResponse(call: Call<TokenInfo>, response: Response<TokenInfo>) {
+                    val token = response.body()?.access
+                    if (token == null) {
+                        showError("Authentication failed")
+                    }
+                    apiInterface.getCustomers("Bearer $token").enqueue(
+                        object : Callback<PageResult> {
+                            override fun onResponse(
+                                call: Call<PageResult>,
+                                response: Response<PageResult>
+                            ) {
+                                if (response.code() != 200) {
+                                    showError(response.message())
+                                } else {
+                                    val pr = response.body() as PageResult
+                                    print(response.body())
+                                }
+                            }
+
+                            override fun onFailure(call: Call<PageResult>, t: Throwable) {
+                                showError(t.message)
+                            }
+                        }
+                    )
+                }
+
+                override fun onFailure(call: Call<TokenInfo>, t: Throwable) {
+                    showError(t.message)
+                }
+            }
+        )
+    }
+
+    private fun showError(errorMessage: String?) {
+        Snackbar.make(binding.root, errorMessage ?: "Unknown Error", Snackbar.LENGTH_LONG).show()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
